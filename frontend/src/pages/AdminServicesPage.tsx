@@ -142,6 +142,7 @@ export default function AdminServicesPage() {
         <div><p className="eyebrow">QUEUEWISE</p><strong>Administrator Portal</strong></div>
         <div className="staff-header-actions">
           <span className="admin-identity">{user.name}</span>
+          <Link className="secondary-button" to="/admin/staff">Staff accounts</Link>
           <Link className="secondary-button" to="/staff">Queue operations</Link>
           <button className="secondary-button" type="button" onClick={() => void logout()} disabled={disabled}>
             {busy === "logout" ? "Logging out..." : "Log out"}

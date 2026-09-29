@@ -13,6 +13,7 @@ import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import StaffDashboardPage from "./pages/StaffDashboardPage";
 import AdminServicesPage from "./pages/AdminServicesPage";
+import AdminStaffPage from "./pages/AdminStaffPage";
 import { roleHome } from "./lib/roleHome";
 
 import "./App.css";
@@ -55,6 +56,14 @@ function HomeRoute() {
 function App() {
   return (
     <Routes>
+      <Route
+        path="/admin/staff"
+        element={
+          <RoleProtectedRoute allowedRoles={["admin"]}>
+            <AdminStaffPage />
+          </RoleProtectedRoute>
+        }
+      />
       <Route
         path="/admin"
         element={

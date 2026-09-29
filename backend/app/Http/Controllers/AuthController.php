@@ -70,7 +70,17 @@ class AuthController extends Controller
 
         $credentials['email'] = strtolower($credentials['email']);
 
-        if (! Auth::attempt($credentials)) {
+        $authenticated = Auth::attemptWhen($credentials, function (User $user): bool {
+            if (! $user->is_active) {
+                throw ValidationException::withMessages([
+                    'email' => ['Your account has been deactivated. Please contact an administrator.'],
+                ]);
+            }
+
+            return true;
+        });
+
+        if (! $authenticated) {
             throw ValidationException::withMessages([
                 'email' => [
                     'The provided email or password is incorrect.',

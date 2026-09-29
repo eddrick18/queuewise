@@ -376,6 +376,7 @@ export default function StaffDashboardPage() {
 
         <div className="staff-header-actions">
           {user.role === "admin" && <Link className="secondary-button" to="/admin">Manage services</Link>}
+          {user.role === "admin" && <Link className="secondary-button" to="/admin/staff">Staff accounts</Link>}
           <div className="staff-identity">
             <span>{user.name}</span>
             <small>{user.role}</small>
