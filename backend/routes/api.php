@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AdminServiceController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\QueueController;
 use App\Http\Controllers\ServiceController;
@@ -15,6 +16,12 @@ Route::get('/health', function () {
 
 Route::middleware('auth:sanctum')->group(
     function () {
+        Route::middleware('role:admin')->prefix('admin')->group(function () {
+            Route::get('/services', [AdminServiceController::class, 'index']);
+            Route::post('/services', [AdminServiceController::class, 'store']);
+            Route::patch('/services/{service}', [AdminServiceController::class, 'update']);
+        });
+
         /*
          * Current authenticated user.
          */

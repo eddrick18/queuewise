@@ -11,6 +11,7 @@ import {
 
 import { useAuth } from "../context/AuthContext";
 import { getErrorMessage } from "../lib/getErrorMessage";
+import { roleHome } from "../lib/roleHome";
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -32,7 +33,7 @@ export default function RegisterPage() {
   const [submitting, setSubmitting] = useState(false);
 
   if (user) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={roleHome(user.role)} replace />;
   }
 
   async function handleSubmit(

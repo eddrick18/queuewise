@@ -5,6 +5,7 @@ import {
 } from "react-router-dom";
 
 import { useAuth } from "../context/AuthContext";
+import { roleHome } from "../lib/roleHome";
 
 import type {
   UserRole,
@@ -44,10 +45,7 @@ export default function RoleProtectedRoute({
   }
 
   if (!allowedRoles.includes(user.role)) {
-    const correctPage =
-      user.role === "customer"
-        ? "/dashboard"
-        : "/staff";
+    const correctPage = roleHome(user.role);
 
     return (
       <Navigate

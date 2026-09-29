@@ -11,6 +11,7 @@ import {
 
 import { useAuth } from "../context/AuthContext";
 import { getErrorMessage } from "../lib/getErrorMessage";
+import { roleHome } from "../lib/roleHome";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -27,7 +28,7 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
 
   if (user) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={roleHome(user.role)} replace />;
   }
 
   async function handleSubmit(
@@ -39,19 +40,12 @@ export default function LoginPage() {
     setSubmitting(true);
 
     try {
-          const loggedInUser = await loginUser({
-      email,
-      password,
+      const loggedInUser = await loginUser({
+        email,
+        password,
       });
 
-      if (
-      loggedInUser.role === "staff" ||
-      loggedInUser.role === "admin"
-    ) {
-      navigate("/staff");
-    } else {
-      navigate("/dashboard");
-    }
+      navigate(roleHome(loggedInUser.role));
     } catch (requestError) {
       setError(getErrorMessage(requestError));
     } finally {

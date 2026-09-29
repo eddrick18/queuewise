@@ -12,6 +12,8 @@ import DashboardPage from "./pages/DashboardPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import StaffDashboardPage from "./pages/StaffDashboardPage";
+import AdminServicesPage from "./pages/AdminServicesPage";
+import { roleHome } from "./lib/roleHome";
 
 import "./App.css";
 
@@ -40,10 +42,7 @@ function HomeRoute() {
     );
   }
 
-  const destination =
-    user.role === "customer"
-      ? "/dashboard"
-      : "/staff";
+  const destination = roleHome(user.role);
 
   return (
     <Navigate
@@ -56,6 +55,14 @@ function HomeRoute() {
 function App() {
   return (
     <Routes>
+      <Route
+        path="/admin"
+        element={
+          <RoleProtectedRoute allowedRoles={["admin"]}>
+            <AdminServicesPage />
+          </RoleProtectedRoute>
+        }
+      />
       <Route
         path="/"
         element={<HomeRoute />}

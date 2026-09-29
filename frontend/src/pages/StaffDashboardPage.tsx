@@ -8,6 +8,7 @@ import {
 
 import {
   useNavigate,
+  Link,
 } from "react-router-dom";
 
 import { useAuth } from "../context/AuthContext";
@@ -374,6 +375,7 @@ export default function StaffDashboardPage() {
         </div>
 
         <div className="staff-header-actions">
+          {user.role === "admin" && <Link className="secondary-button" to="/admin">Manage services</Link>}
           <div className="staff-identity">
             <span>{user.name}</span>
             <small>{user.role}</small>
