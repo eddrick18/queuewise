@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\QueueEntry;
+use App\Models\Service;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -44,8 +45,7 @@ class StaffQueueController extends Controller
 
                 Rule::exists('services', 'id')
                     ->where(
-                        fn ($query) =>
-                        $query->where('is_active', true),
+                        fn ($query) => $query->where('is_active', true),
                     ),
             ],
         ]);
@@ -54,6 +54,11 @@ class StaffQueueController extends Controller
 
         $result = DB::transaction(
             function () use ($validated, $today): array {
+                Service::query()
+                    ->whereKey($validated['service_id'])
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
                 $activeEntry = QueueEntry::query()
                     ->where(
                         'service_id',
@@ -91,10 +96,19 @@ class StaffQueueController extends Controller
                     ];
                 }
 
-                $nextEntry->update([
-                    'status' => 'called',
-                    'called_at' => now(),
-                ]);
+                $updated = QueueEntry::query()
+                    ->whereKey($nextEntry->id)
+                    ->where('status', 'waiting')
+                    ->update([
+                        'status' => 'called',
+                        'called_at' => now(),
+                    ]);
+
+                if ($updated === 0) {
+                    return ['type' => 'changed'];
+                }
+
+                $nextEntry->refresh();
 
                 return [
                     'type' => 'called',
@@ -105,16 +119,20 @@ class StaffQueueController extends Controller
 
         if ($result['type'] === 'active') {
             return response()->json([
-                'message' =>
-                    'Complete the currently called customer first.',
+                'message' => 'Complete or skip the current customer first.',
             ], 409);
         }
 
         if ($result['type'] === 'empty') {
             return response()->json([
-                'message' =>
-                    'There are no waiting customers for this service.',
+                'message' => 'There are no waiting customers for this service.',
             ], 404);
+        }
+
+        if ($result['type'] === 'changed') {
+            return response()->json([
+                'message' => 'The queue changed. Please call the next customer again.',
+            ], 409);
         }
 
         $queueEntry = $result['entry'];
@@ -133,33 +151,51 @@ class StaffQueueController extends Controller
     public function complete(
         QueueEntry $queueEntry,
     ): JsonResponse {
+        return $this->transition($queueEntry, 'serving', 'completed');
+    }
+
+    public function serve(QueueEntry $queueEntry): JsonResponse
+    {
+        return $this->transition($queueEntry, 'called', 'serving');
+    }
+
+    public function skip(QueueEntry $queueEntry): JsonResponse
+    {
+        return $this->transition($queueEntry, 'called', 'skipped');
+    }
+
+    private function transition(
+        QueueEntry $queueEntry,
+        string $fromStatus,
+        string $toStatus,
+    ): JsonResponse {
         if (
             $queueEntry->queue_date->toDateString()
             !== now()->toDateString()
         ) {
             return response()->json([
-                'message' =>
-                    'This queue entry is not from today.',
+                'message' => 'This queue entry is not from today.',
             ], 422);
         }
 
-        if (
-            ! in_array(
-                $queueEntry->status,
-                ['called', 'serving'],
-                true,
-            )
-        ) {
+        $values = ['status' => $toStatus];
+
+        if ($toStatus === 'completed') {
+            $values['completed_at'] = now();
+        }
+
+        $updated = QueueEntry::query()
+            ->whereKey($queueEntry->id)
+            ->where('status', $fromStatus)
+            ->update($values);
+
+        if ($updated === 0) {
             return response()->json([
-                'message' =>
-                    'Only a called or serving customer can be completed.',
+                'message' => "Only a {$fromStatus} customer can be marked as {$toStatus}.",
             ], 422);
         }
 
-        $queueEntry->update([
-            'status' => 'completed',
-            'completed_at' => now(),
-        ]);
+        $queueEntry->refresh();
 
         $queueEntry->load([
             'user:id,name,email',
@@ -167,8 +203,7 @@ class StaffQueueController extends Controller
         ]);
 
         return response()->json([
-            'message' =>
-                'The customer has been marked as completed.',
+            'message' => "The customer has been marked as {$toStatus}.",
 
             'queue_entry' => $queueEntry,
         ]);

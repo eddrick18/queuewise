@@ -15,16 +15,25 @@ Route::get('/health', function () {
 
 Route::middleware('auth:sanctum')->group(
     function () {
+        /*
+         * Current authenticated user.
+         */
         Route::get('/user', [
             AuthController::class,
             'user',
         ]);
 
+        /*
+         * Available QueueWise services.
+         */
         Route::get('/services', [
             ServiceController::class,
             'index',
         ]);
 
+        /*
+         * Customer queue routes.
+         */
         Route::get('/queue/current', [
             QueueController::class,
             'current',
@@ -35,6 +44,17 @@ Route::middleware('auth:sanctum')->group(
             'join',
         ]);
 
+        Route::patch(
+            '/queue/{queueEntry}/cancel',
+            [
+                QueueController::class,
+                'cancel',
+            ],
+        );
+
+        /*
+         * Staff and administrator routes.
+         */
         Route::middleware('role:staff,admin')
             ->prefix('staff')
             ->group(function () {
@@ -47,6 +67,16 @@ Route::middleware('auth:sanctum')->group(
                     StaffQueueController::class,
                     'callNext',
                 ]);
+
+                Route::patch(
+                    '/queue/{queueEntry}/serve',
+                    [StaffQueueController::class, 'serve'],
+                );
+
+                Route::patch(
+                    '/queue/{queueEntry}/skip',
+                    [StaffQueueController::class, 'skip'],
+                );
 
                 Route::patch(
                     '/queue/{queueEntry}/complete',

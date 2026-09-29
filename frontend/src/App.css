@@ -958,3 +958,50 @@
     animation: none;
   }
 }
+
+.danger-button {
+  min-height: 48px;
+  padding: 12px 18px;
+  color: #fecaca;
+  background: #3f1014;
+  border: 1px solid #7f1d1d;
+  border-radius: 9px;
+  font-weight: 800;
+}
+
+.danger-button:hover:not(:disabled) {
+  color: #ffffff;
+  background: #7f1d1d;
+}
+
+.danger-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.queue-action-row {
+  grid-column: 1 / -1;
+  padding: 18px 24px;
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid #292e36;
+}
+
+.queue-cancelled-message {
+  grid-column: 1 / -1;
+  padding: 18px 24px;
+  color: #fecaca;
+  background: #3f1014;
+  border-top: 1px solid #7f1d1d;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.queue-state-cancelled {
+  border-color: #7f1d1d;
+}
+
+.queue-state-cancelled .queue-number-block {
+  color: #fee2e2;
+  background: #7f1d1d;
+}

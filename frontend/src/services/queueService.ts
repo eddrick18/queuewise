@@ -21,9 +21,11 @@ export type QueueEntry = {
   queue_number: number;
   queue_date: string;
   status: QueueStatus;
+
   joined_at: string;
   called_at: string | null;
   completed_at: string | null;
+
   people_ahead: number;
   estimated_wait_minutes: number;
 
@@ -34,6 +36,9 @@ export type QueueEntry = {
   };
 };
 
+/**
+ * Load all active services from Laravel.
+ */
 export async function getServices(): Promise<Service[]> {
   const response = await api.get<{
     services: Service[];
@@ -42,6 +47,9 @@ export async function getServices(): Promise<Service[]> {
   return response.data.services;
 }
 
+/**
+ * Load the customer's latest queue record for today.
+ */
 export async function getCurrentQueue():
   Promise<QueueEntry | null> {
   const response = await api.get<{
@@ -51,6 +59,9 @@ export async function getCurrentQueue():
   return response.data.queue_entry;
 }
 
+/**
+ * Join a selected service queue.
+ */
 export async function joinQueue(
   serviceId: number,
 ): Promise<QueueEntry> {
@@ -60,6 +71,22 @@ export async function joinQueue(
   }>("/api/queue/join", {
     service_id: serviceId,
   });
+
+  return response.data.queue_entry;
+}
+
+/**
+ * Cancel a waiting queue entry.
+ */
+export async function cancelQueue(
+  queueEntryId: number,
+): Promise<QueueEntry> {
+  const response = await api.patch<{
+    message: string;
+    queue_entry: QueueEntry;
+  }>(
+    `/api/queue/${queueEntryId}/cancel`,
+  );
 
   return response.data.queue_entry;
 }

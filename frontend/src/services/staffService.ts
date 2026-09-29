@@ -70,3 +70,23 @@ export async function completeCustomer(
 
   return response.data.queue_entry;
 }
+
+export async function serveCustomer(
+  queueEntryId: number,
+): Promise<StaffQueueEntry> {
+  const response = await api.patch<QueueResponse>(
+    `/api/staff/queue/${queueEntryId}/serve`,
+  );
+
+  return response.data.queue_entry;
+}
+
+export async function skipCustomer(
+  queueEntryId: number,
+): Promise<StaffQueueEntry> {
+  const response = await api.patch<QueueResponse>(
+    `/api/staff/queue/${queueEntryId}/skip`,
+  );
+
+  return response.data.queue_entry;
+}

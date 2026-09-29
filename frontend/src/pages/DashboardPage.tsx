@@ -11,6 +11,7 @@ import { useAuth } from "../context/AuthContext";
 import { getErrorMessage } from "../lib/getErrorMessage";
 
 import {
+  cancelQueue,
   getCurrentQueue,
   getServices,
   joinQueue,
@@ -19,9 +20,13 @@ import {
   type Service,
 } from "../services/queueService";
 
+import "./DashboardPage.css";
+
 const POLLING_INTERVAL_MS = 5000;
 
-function isActiveStatus(status: QueueStatus): boolean {
+function isActiveStatus(
+  status: QueueStatus,
+): boolean {
   return [
     "waiting",
     "called",
@@ -29,20 +34,30 @@ function isActiveStatus(status: QueueStatus): boolean {
   ].includes(status);
 }
 
-function formatQueueNumber(queueNumber: number): string {
-  return String(queueNumber).padStart(3, "0");
+function formatQueueNumber(
+  queueNumber: number,
+): string {
+  return String(queueNumber).padStart(
+    3,
+    "0",
+  );
 }
 
-function formatUpdatedTime(date: Date | null): string {
+function formatUpdatedTime(
+  date: Date | null,
+): string {
   if (!date) {
     return "Not updated yet";
   }
 
-  return new Intl.DateTimeFormat("en-PH", {
-    hour: "numeric",
-    minute: "2-digit",
-    second: "2-digit",
-  }).format(date);
+  return new Intl.DateTimeFormat(
+    "en-PH",
+    {
+      hour: "numeric",
+      minute: "2-digit",
+      second: "2-digit",
+    },
+  ).format(date);
 }
 
 export default function DashboardPage() {
@@ -53,14 +68,16 @@ export default function DashboardPage() {
     logoutUser,
   } = useAuth();
 
-  const [services, setServices] = useState<Service[]>([]);
+  const [services, setServices] =
+    useState<Service[]>([]);
 
   const [
     currentQueue,
     setCurrentQueue,
   ] = useState<QueueEntry | null>(null);
 
-  const [loadingData, setLoadingData] = useState(true);
+  const [loadingData, setLoadingData] =
+    useState(true);
 
   const [
     refreshingQueue,
@@ -72,96 +89,134 @@ export default function DashboardPage() {
     setJoiningServiceId,
   ] = useState<number | null>(null);
 
-  const [loggingOut, setLoggingOut] = useState(false);
+  const [
+    cancellingQueue,
+    setCancellingQueue,
+  ] = useState(false);
 
-  const [lastUpdatedAt, setLastUpdatedAt] =
-    useState<Date | null>(null);
+  const [loggingOut, setLoggingOut] =
+    useState(false);
 
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [
+    lastUpdatedAt,
+    setLastUpdatedAt,
+  ] = useState<Date | null>(null);
 
-  const queueRequestInProgress = useRef(false);
+  const [error, setError] =
+    useState("");
 
-  const lastQueueStatus = useRef<QueueStatus | null>(
-    null,
-  );
+  const [success, setSuccess] =
+    useState("");
 
-  const refreshCurrentQueue = useCallback(
-    async (
-      showLoadingIndicator = false,
-      showErrors = false,
-    ): Promise<void> => {
-      if (queueRequestInProgress.current) {
-        return;
-      }
+  /*
+   * Prevent two polling requests from running
+   * at the same time.
+   */
+  const queueRequestInProgress =
+    useRef(false);
 
-      queueRequestInProgress.current = true;
+  const queueMutationInProgress = useRef(false);
+  const queueRevision = useRef(0);
 
-      if (showLoadingIndicator) {
-        setRefreshingQueue(true);
-      }
+  /*
+   * Remember the previous queue status so React
+   * can detect changes.
+   */
+  const lastQueueStatus =
+    useRef<QueueStatus | null>(null);
 
-      try {
-        const queueResult = await getCurrentQueue();
-
-        const previousStatus = lastQueueStatus.current;
-        const nextStatus = queueResult?.status ?? null;
-
-        if (
-          previousStatus !== null &&
-          nextStatus !== previousStatus
-        ) {
-          if (nextStatus === "called") {
-            setSuccess(
-              "Your queue number has been called. Please proceed to the service counter.",
-            );
-          }
-
-          if (nextStatus === "serving") {
-            setSuccess(
-              "Your transaction is now being served.",
-            );
-          }
-
-          if (nextStatus === "completed") {
-            setSuccess(
-              "Your transaction has been completed.",
-            );
-          }
-
-          if (nextStatus === "skipped") {
-            setError(
-              "Your queue number was skipped. Please contact a staff member.",
-            );
-          }
-
-          if (nextStatus === "cancelled") {
-            setError(
-              "Your queue entry has been cancelled.",
-            );
-          }
+  const refreshCurrentQueue =
+    useCallback(
+      async (
+        showLoadingIndicator = false,
+        showErrors = false,
+      ): Promise<void> => {
+        if (queueRequestInProgress.current || queueMutationInProgress.current) {
+          return;
         }
 
-        lastQueueStatus.current = nextStatus;
+        queueRequestInProgress.current = true;
+        const requestRevision = queueRevision.current;
 
-        setCurrentQueue(queueResult);
-        setLastUpdatedAt(new Date());
-      } catch (requestError) {
-        if (showErrors) {
-          setError(getErrorMessage(requestError));
+        if (showLoadingIndicator) {
+          setRefreshingQueue(true);
         }
-      } finally {
-        queueRequestInProgress.current = false;
-        setRefreshingQueue(false);
-      }
-    },
-    [],
-  );
+
+        try {
+          const queueResult =
+            await getCurrentQueue();
+
+          if (requestRevision !== queueRevision.current) {
+            return;
+          }
+
+          const previousStatus =
+            lastQueueStatus.current;
+
+          const nextStatus =
+            queueResult?.status ?? null;
+
+          if (
+            previousStatus !== null &&
+            nextStatus !== previousStatus
+          ) {
+            if (nextStatus === "called") {
+              setSuccess(
+                "Your queue number has been called. Please proceed to the service counter.",
+              );
+            }
+
+            if (nextStatus === "serving") {
+              setSuccess(
+                "Your transaction is now being served.",
+              );
+            }
+
+            if (nextStatus === "completed") {
+              setSuccess(
+                "Your transaction has been completed.",
+              );
+            }
+
+            if (nextStatus === "cancelled") {
+              setSuccess(
+                "Your queue entry has been cancelled.",
+              );
+            }
+
+            if (nextStatus === "skipped") {
+              setError(
+                "Your queue number was skipped. Please contact a staff member.",
+              );
+            }
+          }
+
+          lastQueueStatus.current =
+            nextStatus;
+
+          setCurrentQueue(queueResult);
+          setLastUpdatedAt(new Date());
+        } catch (requestError) {
+          if (showErrors && requestRevision === queueRevision.current) {
+            setError(
+              getErrorMessage(requestError),
+            );
+          }
+        } finally {
+          queueRequestInProgress.current =
+            false;
+
+          setRefreshingQueue(false);
+        }
+      },
+      [],
+    );
 
   useEffect(() => {
     let componentIsActive = true;
 
-    async function loadDashboard(): Promise<void> {
+    async function loadDashboard():
+      Promise<void> {
       setError("");
 
       try {
@@ -186,7 +241,9 @@ export default function DashboardPage() {
         setLastUpdatedAt(new Date());
       } catch (requestError) {
         if (componentIsActive) {
-          setError(getErrorMessage(requestError));
+          setError(
+            getErrorMessage(requestError),
+          );
         }
       } finally {
         if (componentIsActive) {
@@ -197,25 +254,47 @@ export default function DashboardPage() {
 
     void loadDashboard();
 
-    const pollingTimer = window.setInterval(() => {
-      void refreshCurrentQueue(false, false);
-    }, POLLING_INTERVAL_MS);
-
     return () => {
       componentIsActive = false;
-      window.clearInterval(pollingTimer);
     };
-  }, [refreshCurrentQueue]);
+  }, []);
+
+  useEffect(() => {
+    if (loadingData) {
+      return;
+    }
+
+    const pollingTimer =
+      window.setInterval(() => {
+        void refreshCurrentQueue(
+          false,
+          false,
+        );
+      }, POLLING_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(
+        pollingTimer,
+      );
+    };
+  }, [loadingData, refreshCurrentQueue]);
 
   async function handleJoinQueue(
     serviceId: number,
   ): Promise<void> {
+    if (queueMutationInProgress.current) {
+      return;
+    }
+
+    queueMutationInProgress.current = true;
+    queueRevision.current += 1;
     setError("");
     setSuccess("");
     setJoiningServiceId(serviceId);
 
     try {
-      const newQueueEntry = await joinQueue(serviceId);
+      const newQueueEntry =
+        await joinQueue(serviceId);
 
       setCurrentQueue(newQueueEntry);
 
@@ -228,19 +307,71 @@ export default function DashboardPage() {
         `You joined ${newQueueEntry.service.name}.`,
       );
     } catch (requestError) {
-      setError(getErrorMessage(requestError));
+      setError(
+        getErrorMessage(requestError),
+      );
     } finally {
+      queueMutationInProgress.current = false;
       setJoiningServiceId(null);
     }
   }
 
-  async function handleManualRefresh(): Promise<void> {
-    setError("");
+  async function handleCancelQueue():
+    Promise<void> {
+    if (!currentQueue || queueMutationInProgress.current) {
+      return;
+    }
 
-    await refreshCurrentQueue(true, true);
+    const confirmed = window.confirm(
+      "Are you sure you want to cancel your queue entry?",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    queueMutationInProgress.current = true;
+    queueRevision.current += 1;
+    setError("");
+    setSuccess("");
+    setCancellingQueue(true);
+
+    try {
+      const cancelledQueue =
+        await cancelQueue(currentQueue.id);
+
+      setCurrentQueue(cancelledQueue);
+
+      lastQueueStatus.current =
+        cancelledQueue.status;
+
+      setLastUpdatedAt(new Date());
+
+      setSuccess(
+        "Your queue entry has been cancelled.",
+      );
+    } catch (requestError) {
+      setError(
+        getErrorMessage(requestError),
+      );
+    } finally {
+      queueMutationInProgress.current = false;
+      setCancellingQueue(false);
+    }
   }
 
-  async function handleLogout(): Promise<void> {
+  async function handleManualRefresh():
+    Promise<void> {
+    setError("");
+
+    await refreshCurrentQueue(
+      true,
+      true,
+    );
+  }
+
+  async function handleLogout():
+    Promise<void> {
     setError("");
     setLoggingOut(true);
 
@@ -248,7 +379,9 @@ export default function DashboardPage() {
       await logoutUser();
       navigate("/login");
     } catch (requestError) {
-      setError(getErrorMessage(requestError));
+      setError(
+        getErrorMessage(requestError),
+      );
     } finally {
       setLoggingOut(false);
     }
@@ -260,23 +393,34 @@ export default function DashboardPage() {
 
   const hasActiveQueue =
     currentQueue !== null &&
-    isActiveStatus(currentQueue.status);
+    isActiveStatus(
+      currentQueue.status,
+    );
 
   return (
     <main className="dashboard-page">
       <header className="dashboard-header">
         <div>
-          <p className="eyebrow">QUEUEWISE</p>
-          <strong>Customer Portal</strong>
+          <p className="eyebrow">
+            QUEUEWISE
+          </p>
+
+          <strong>
+            Customer Portal
+          </strong>
         </div>
 
         <button
           className="secondary-button"
           type="button"
-          onClick={handleLogout}
+          onClick={() =>
+            void handleLogout()
+          }
           disabled={loggingOut}
         >
-          {loggingOut ? "Logging out..." : "Log out"}
+          {loggingOut
+            ? "Logging out..."
+            : "Log out"}
         </button>
       </header>
 
@@ -286,11 +430,13 @@ export default function DashboardPage() {
             CUSTOMER DASHBOARD
           </p>
 
-          <h1>Welcome, {user.name}.</h1>
+          <h1>
+            Welcome, {user.name}.
+          </h1>
 
           <p className="supporting-text">
-            Select a service and monitor your digital queue
-            status.
+            Select a service and monitor
+            your digital queue status.
           </p>
         </div>
 
@@ -325,13 +471,17 @@ export default function DashboardPage() {
                     CURRENT QUEUE
                   </p>
 
-                  <h2>Your queue status</h2>
+                  <h2>
+                    Your queue status
+                  </h2>
                 </div>
 
                 <div className="queue-refresh-controls">
                   <span className="queue-updated-time">
                     Updated{" "}
-                    {formatUpdatedTime(lastUpdatedAt)}
+                    {formatUpdatedTime(
+                      lastUpdatedAt,
+                    )}
                   </span>
 
                   <button
@@ -340,7 +490,9 @@ export default function DashboardPage() {
                     onClick={() =>
                       void handleManualRefresh()
                     }
-                    disabled={refreshingQueue}
+                    disabled={
+                      refreshingQueue
+                    }
                   >
                     {refreshingQueue
                       ? "Refreshing..."
@@ -351,10 +503,15 @@ export default function DashboardPage() {
 
               {currentQueue ? (
                 <article
-                  className={`active-queue-card queue-state-${currentQueue.status}`}
+                  className={
+                    `active-queue-card ` +
+                    `queue-state-${currentQueue.status}`
+                  }
                 >
                   <div className="queue-number-block">
-                    <span>Your number</span>
+                    <span>
+                      Your number
+                    </span>
 
                     <strong>
                       {formatQueueNumber(
@@ -365,33 +522,48 @@ export default function DashboardPage() {
 
                   <div className="queue-details">
                     <div>
-                      <span>Service</span>
+                      <span>
+                        Service
+                      </span>
 
                       <strong>
-                        {currentQueue.service.name}
+                        {
+                          currentQueue
+                            .service
+                            .name
+                        }
                       </strong>
                     </div>
 
                     <div>
-                      <span>Status</span>
+                      <span>
+                        Status
+                      </span>
 
                       <strong className="status-text">
-                        {currentQueue.status}
+                        {
+                          currentQueue.status
+                        }
                       </strong>
                     </div>
 
                     <div>
-                      <span>People ahead</span>
+                      <span>
+                        People ahead
+                      </span>
 
                       <strong>
                         {hasActiveQueue
-                          ? currentQueue.people_ahead
+                          ? currentQueue
+                              .people_ahead
                           : "—"}
                       </strong>
                     </div>
 
                     <div>
-                      <span>Estimated wait</span>
+                      <span>
+                        Estimated wait
+                      </span>
 
                       <strong>
                         {hasActiveQueue
@@ -401,34 +573,81 @@ export default function DashboardPage() {
                     </div>
                   </div>
 
-                  {currentQueue.status === "called" && (
-                    <div className="queue-alert">
-                      Your number is being called. Please
-                      proceed to the counter.
+                  {currentQueue.status ===
+                    "waiting" && (
+                    <div className="queue-action-row">
+                      <button
+                        className="danger-button"
+                        type="button"
+                        onClick={() =>
+                          void handleCancelQueue()
+                        }
+                        disabled={
+                          cancellingQueue
+                        }
+                      >
+                        {cancellingQueue
+                          ? "Cancelling..."
+                          : "Cancel queue"}
+                      </button>
                     </div>
                   )}
 
-                  {currentQueue.status === "serving" && (
+                  {currentQueue.status ===
+                    "called" && (
                     <div className="queue-alert">
-                      Your transaction is currently being
-                      served.
+                      Your number is being
+                      called. Please proceed
+                      to the counter.
                     </div>
                   )}
 
-                  {currentQueue.status === "completed" && (
+                  {currentQueue.status ===
+                    "serving" && (
+                    <div className="queue-alert">
+                      Your transaction is
+                      currently being served.
+                    </div>
+                  )}
+
+                  {currentQueue.status ===
+                    "completed" && (
                     <div className="queue-completed-message">
-                      Your transaction has been completed.
-                      You may join another queue if needed.
+                      Your transaction has
+                      been completed. You may
+                      join another queue if
+                      needed.
+                    </div>
+                  )}
+
+                  {currentQueue.status ===
+                    "cancelled" && (
+                    <div className="queue-cancelled-message">
+                      Your queue entry was
+                      cancelled. You may
+                      select another service
+                      below.
+                    </div>
+                  )}
+
+                  {currentQueue.status ===
+                    "skipped" && (
+                    <div className="queue-skipped-message">
+                      Your queue number was
+                      skipped. Please contact
+                      a staff member.
                     </div>
                   )}
                 </article>
               ) : (
                 <div className="empty-queue">
-                  <strong>No queue record today</strong>
+                  <strong>
+                    No queue record today
+                  </strong>
 
                   <p>
-                    Choose one of the available services
-                    below.
+                    Choose one of the
+                    available services below.
                   </p>
                 </div>
               )}
@@ -441,7 +660,9 @@ export default function DashboardPage() {
                     AVAILABLE SERVICES
                   </p>
 
-                  <h2>Select a service</h2>
+                  <h2>
+                    Select a service
+                  </h2>
                 </div>
 
                 <span className="service-count">
@@ -450,53 +671,61 @@ export default function DashboardPage() {
               </div>
 
               <div className="services-grid">
-                {services.map((service) => {
-                  const isJoining =
-                    joiningServiceId === service.id;
+                {services.map(
+                  (service) => {
+                    const isJoining =
+                      joiningServiceId ===
+                      service.id;
 
-                  return (
-                    <article
-                      className="service-card"
-                      key={service.id}
-                    >
-                      <div>
-                        <span className="service-time">
-                          Approximately{" "}
-                          {
-                            service
-                              .average_service_minutes
-                          }{" "}
-                          minutes
-                        </span>
-
-                        <h3>{service.name}</h3>
-
-                        <p>
-                          {service.description ??
-                            "Service description unavailable."}
-                        </p>
-                      </div>
-
-                      <button
-                        className="primary-button"
-                        type="button"
-                        onClick={() =>
-                          void handleJoinQueue(service.id)
-                        }
-                        disabled={
-                          hasActiveQueue ||
-                          joiningServiceId !== null
-                        }
+                    return (
+                      <article
+                        className="service-card"
+                        key={service.id}
                       >
-                        {isJoining
-                          ? "Joining..."
-                          : hasActiveQueue
-                            ? "Queue already active"
-                            : "Join queue"}
-                      </button>
-                    </article>
-                  );
-                })}
+                        <div>
+                          <span className="service-time">
+                            Approximately{" "}
+                            {
+                              service
+                                .average_service_minutes
+                            }{" "}
+                            minutes
+                          </span>
+
+                          <h3>
+                            {service.name}
+                          </h3>
+
+                          <p>
+                            {service.description ??
+                              "Service description unavailable."}
+                          </p>
+                        </div>
+
+                        <button
+                          className="primary-button"
+                          type="button"
+                          onClick={() =>
+                            void handleJoinQueue(
+                              service.id,
+                            )
+                          }
+                          disabled={
+                            hasActiveQueue ||
+                            joiningServiceId !==
+                              null
+                          }
+                        >
+                          {isJoining
+                            ? "Joining..."
+                            : hasActiveQueue
+                              ? "Queue already active"
+                              : "Join queue"}
+                        </button>
+                      </article>
+                    );
+                  },
+                )}
               </div>
             </section>
           </>

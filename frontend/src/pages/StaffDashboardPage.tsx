@@ -22,6 +22,8 @@ import {
   callNextCustomer,
   completeCustomer,
   getStaffQueue,
+  serveCustomer,
+  skipCustomer,
   type StaffQueueEntry,
 } from "../services/staffService";
 
@@ -99,18 +101,21 @@ export default function StaffDashboardPage() {
   const [success, setSuccess] =
     useState("");
 
-  const staffRefreshInProgress = useRef(false);  
+  const staffRefreshInProgress = useRef(false);
+  const staffMutationInProgress = useRef(false);
+  const queueRevision = useRef(0);
 
-    const loadStaffData = useCallback(
+  const loadStaffData = useCallback(
     async (
       showMainLoader = true,
       showRefreshIndicator = false,
     ): Promise<void> => {
-      if (staffRefreshInProgress.current) {
+      if (staffRefreshInProgress.current || staffMutationInProgress.current) {
         return;
       }
 
       staffRefreshInProgress.current = true;
+      const requestRevision = queueRevision.current;
 
       if (showMainLoader) {
         setLoading(true);
@@ -128,6 +133,10 @@ export default function StaffDashboardPage() {
           getServices(),
           getStaffQueue(),
         ]);
+
+        if (requestRevision !== queueRevision.current) {
+          return;
+        }
 
         setServices(serviceResults);
         setQueueEntries(queueResults);
@@ -148,7 +157,9 @@ export default function StaffDashboardPage() {
           },
         );
       } catch (requestError) {
-        setError(getErrorMessage(requestError));
+        if (requestRevision === queueRevision.current) {
+          setError(getErrorMessage(requestError));
+        }
       } finally {
         staffRefreshInProgress.current = false;
         setLoading(false);
@@ -158,7 +169,7 @@ export default function StaffDashboardPage() {
     [],
   );
 
-    useEffect(() => {
+  useEffect(() => {
     void loadStaffData(true, false);
   }, [loadStaffData]);
 
@@ -240,10 +251,12 @@ export default function StaffDashboardPage() {
     ).length;
 
   async function handleCallNext() {
-    if (!selectedServiceId) {
+    if (!selectedServiceId || staffMutationInProgress.current) {
       return;
     }
 
+    staffMutationInProgress.current = true;
+    queueRevision.current += 1;
     setError("");
     setSuccess("");
     setActionLoading("call-next");
@@ -260,44 +273,69 @@ export default function StaffDashboardPage() {
         )} has been called.`,
       );
 
-      await loadStaffData(false);
+      updateQueueEntry(calledEntry);
     } catch (requestError) {
       setError(
         getErrorMessage(requestError),
       );
     } finally {
+      staffMutationInProgress.current = false;
       setActionLoading(null);
     }
   }
 
-  async function handleComplete(
+  function updateQueueEntry(updatedEntry: StaffQueueEntry): void {
+    setQueueEntries((entries) => {
+      const remainingEntries = entries.filter((entry) => entry.id !== updatedEntry.id);
+
+      if (updatedEntry.status === "completed" || updatedEntry.status === "skipped") {
+        return remainingEntries;
+      }
+
+      return [...remainingEntries, updatedEntry].sort((a, b) =>
+        a.service.id - b.service.id || a.queue_number - b.queue_number,
+      );
+    });
+  }
+
+  async function handleTransition(
     queueEntryId: number,
+    action: "serve" | "skip" | "complete",
   ) {
+    if (staffMutationInProgress.current) {
+      return;
+    }
+
+    staffMutationInProgress.current = true;
+    queueRevision.current += 1;
     setError("");
     setSuccess("");
 
     setActionLoading(
-      `complete-${queueEntryId}`,
+      `${action}-${queueEntryId}`,
     );
 
     try {
-      const completedEntry =
-        await completeCustomer(
-          queueEntryId,
-        );
+      const transition = {
+        serve: serveCustomer,
+        skip: skipCustomer,
+        complete: completeCustomer,
+      }[action];
+      const updatedEntry = await transition(queueEntryId);
 
       setSuccess(
         `Queue ${formatQueueNumber(
-          completedEntry.queue_number,
-        )} has been completed.`,
+          updatedEntry.queue_number,
+        )} is now ${updatedEntry.status}.`,
       );
 
-      await loadStaffData(false);
+      updateQueueEntry(updatedEntry);
     } catch (requestError) {
       setError(
         getErrorMessage(requestError),
       );
     } finally {
+      staffMutationInProgress.current = false;
       setActionLoading(null);
     }
   }
@@ -421,7 +459,7 @@ export default function StaffDashboardPage() {
 
               <article className="staff-summary-card">
                 <span>
-                  Currently called
+                  Called / serving
                 </span>
 
                 <strong>
@@ -531,7 +569,7 @@ export default function StaffDashboardPage() {
                       <>
                         <div className="staff-called-number">
                           <span>
-                            Now serving
+                            {activeEntry.status === "serving" ? "Now serving" : "Now calling"}
                           </span>
 
                           <strong>
@@ -585,24 +623,42 @@ export default function StaffDashboardPage() {
                           </div>
                         </div>
 
-                        <button
-                          className="primary-button"
-                          type="button"
-                          onClick={() =>
-                            void handleComplete(
-                              activeEntry.id,
-                            )
-                          }
-                          disabled={
-                            actionLoading !==
-                            null
-                          }
-                        >
-                          {actionLoading ===
-                          `complete-${activeEntry.id}`
-                            ? "Completing..."
-                            : "Mark as completed"}
-                        </button>
+                        {activeEntry.status === "called" ? (
+                          <div className="staff-header-actions">
+                            <button
+                              className="primary-button"
+                              type="button"
+                              onClick={() => void handleTransition(activeEntry.id, "serve")}
+                              disabled={actionLoading !== null}
+                            >
+                              {actionLoading === `serve-${activeEntry.id}` ? "Starting..." : "Start serving"}
+                            </button>
+                            <button
+                              className="secondary-button"
+                              type="button"
+                              onClick={() => void handleTransition(activeEntry.id, "skip")}
+                              disabled={actionLoading !== null}
+                            >
+                              {actionLoading === `skip-${activeEntry.id}` ? "Skipping..." : "Skip customer"}
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            className="primary-button"
+                            type="button"
+                            onClick={() =>
+                              void handleTransition(
+                                activeEntry.id,
+                                "complete",
+                              )
+                            }
+                            disabled={actionLoading !== null}
+                          >
+                            {actionLoading === `complete-${activeEntry.id}`
+                              ? "Completing..."
+                              : "Mark as completed"}
+                          </button>
+                        )}
                       </>
                     ) : (
                       <div className="staff-idle-state">

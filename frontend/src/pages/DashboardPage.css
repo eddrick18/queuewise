@@ -1,0 +1,148 @@
+.queue-refresh-controls {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.queue-updated-time {
+  color: #858d99;
+  font-size: 0.82rem;
+}
+
+.queue-alert,
+.queue-completed-message,
+.queue-cancelled-message,
+.queue-skipped-message {
+  grid-column: 1 / -1;
+  padding: 18px 24px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.queue-alert {
+  color: #101500;
+  background: #a3e635;
+}
+
+.queue-completed-message {
+  color: #bbf7d0;
+  background: #052e16;
+  border-top: 1px solid #166534;
+}
+
+.queue-cancelled-message {
+  color: #fecaca;
+  background: #3f1014;
+  border-top: 1px solid #7f1d1d;
+}
+
+.queue-skipped-message {
+  color: #fef3c7;
+  background: #422006;
+  border-top: 1px solid #ca8a04;
+}
+
+.queue-action-row {
+  grid-column: 1 / -1;
+  padding: 18px 24px;
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid #292e36;
+}
+
+.danger-button {
+  min-height: 48px;
+  padding: 12px 18px;
+  color: #fecaca;
+  background: #3f1014;
+  border: 1px solid #7f1d1d;
+  border-radius: 9px;
+  font-weight: 800;
+}
+
+.danger-button:hover:not(:disabled) {
+  color: #ffffff;
+  background: #7f1d1d;
+}
+
+.danger-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.queue-state-called {
+  border-color: #a3e635;
+}
+
+.queue-state-called .queue-number-block {
+  animation: queuePulse 1.4s ease-in-out infinite;
+}
+
+.queue-state-serving {
+  border-color: #38bdf8;
+}
+
+.queue-state-serving .queue-number-block {
+  color: #082f49;
+  background: #7dd3fc;
+}
+
+.queue-state-completed {
+  border-color: #166534;
+}
+
+.queue-state-completed .queue-number-block {
+  color: #dcfce7;
+  background: #166534;
+}
+
+.queue-state-cancelled {
+  border-color: #7f1d1d;
+}
+
+.queue-state-cancelled .queue-number-block {
+  color: #fee2e2;
+  background: #7f1d1d;
+}
+
+.queue-state-skipped {
+  border-color: #ca8a04;
+}
+
+.queue-state-skipped .queue-number-block {
+  color: #422006;
+  background: #facc15;
+}
+
+@keyframes queuePulse {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+
+  50% {
+    filter: brightness(1.25);
+  }
+}
+
+@media (max-width: 620px) {
+  .queue-refresh-controls {
+    width: 100%;
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .queue-action-row {
+    padding: 16px;
+  }
+
+  .queue-action-row .danger-button {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .queue-state-called .queue-number-block {
+    animation: none;
+  }
+}
