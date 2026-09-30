@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AdminQueueHistoryController;
 use App\Http\Controllers\AdminServiceController;
 use App\Http\Controllers\AdminStaffController;
 use App\Http\Controllers\AuthController;
@@ -18,6 +19,7 @@ Route::get('/health', function () {
 Route::middleware(['auth:sanctum', 'active'])->group(
     function () {
         Route::middleware('role:admin')->prefix('admin')->group(function () {
+            Route::get('/queue-history', [AdminQueueHistoryController::class, 'index']);
             Route::get('/staff', [AdminStaffController::class, 'index']);
             Route::post('/staff', [AdminStaffController::class, 'store']);
             Route::patch('/staff/{staff}', [AdminStaffController::class, 'update']);

@@ -14,6 +14,7 @@ import RegisterPage from "./pages/RegisterPage";
 import StaffDashboardPage from "./pages/StaffDashboardPage";
 import AdminServicesPage from "./pages/AdminServicesPage";
 import AdminStaffPage from "./pages/AdminStaffPage";
+import AdminQueueHistoryPage from "./pages/AdminQueueHistoryPage";
 import { roleHome } from "./lib/roleHome";
 
 import "./App.css";
@@ -56,6 +57,7 @@ function HomeRoute() {
 function App() {
   return (
     <Routes>
+      <Route path="/admin/history" element={<RoleProtectedRoute allowedRoles={["admin"]}><AdminQueueHistoryPage /></RoleProtectedRoute>} />
       <Route
         path="/admin/staff"
         element={
