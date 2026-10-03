@@ -228,15 +228,14 @@ export default function StaffDashboardPage() {
       [selectedServiceQueue],
     );
 
-  const waitingEntries =
-    useMemo(
-      () =>
-        selectedServiceQueue.filter(
-          (entry) =>
-            entry.status === "waiting",
-        ),
-      [selectedServiceQueue],
-    );
+  const queueTime = Date.now();
+  const waitingEntries = selectedServiceQueue.filter((entry) => entry.status === "waiting")
+    .sort((a, b) => {
+      const rank = (entry: StaffQueueEntry) => !entry.priority_at ? 1 : new Date(entry.priority_at).getTime() <= queueTime ? 0 : 2;
+      return rank(a) - rank(b)
+        || (a.priority_at && b.priority_at ? new Date(a.priority_at).getTime() - new Date(b.priority_at).getTime() : 0)
+        || a.queue_number - b.queue_number;
+    });
 
   const totalWaiting =
     queueEntries.filter(
@@ -375,6 +374,7 @@ export default function StaffDashboardPage() {
         </div>
 
         <div className="staff-header-actions">
+          <Link className="secondary-button" to="/staff/appointments">Appointments</Link>
           {user.role === "admin" && <Link className="secondary-button" to="/admin">Manage services</Link>}
           {user.role === "admin" && <Link className="secondary-button" to="/admin/staff">Staff accounts</Link>}
           {user.role === "admin" && <Link className="secondary-button" to="/admin/history">Queue history</Link>}
@@ -750,6 +750,7 @@ export default function StaffDashboardPage() {
                               </div>
 
                               <div className="staff-queue-person">
+                                {queueEntry.priority_at && <span>Appointment: {new Date(queueEntry.priority_at).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila", hour: "numeric", minute: "2-digit" })} PHT · {new Date(queueEntry.priority_at).getTime() <= queueTime ? "Priority ready" : "Not due yet"}</span>}
                                 <strong>
                                   {
                                     queueEntry

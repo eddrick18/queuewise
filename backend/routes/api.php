@@ -3,6 +3,7 @@
 use App\Http\Controllers\AdminQueueHistoryController;
 use App\Http\Controllers\AdminServiceController;
 use App\Http\Controllers\AdminStaffController;
+use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\QueueController;
 use App\Http\Controllers\ServiceController;
@@ -18,6 +19,12 @@ Route::get('/health', function () {
 
 Route::middleware(['auth:sanctum', 'active'])->group(
     function () {
+        Route::middleware('role:customer')->group(function () {
+            Route::get('/appointments', [AppointmentController::class, 'index']);
+            Route::get('/appointments/slots', [AppointmentController::class, 'slots']);
+            Route::post('/appointments', [AppointmentController::class, 'store']);
+            Route::patch('/appointments/{appointment}/cancel', [AppointmentController::class, 'cancel']);
+        });
         Route::middleware('role:admin')->prefix('admin')->group(function () {
             Route::get('/queue-history', [AdminQueueHistoryController::class, 'index']);
             Route::get('/staff', [AdminStaffController::class, 'index']);
@@ -71,6 +78,8 @@ Route::middleware(['auth:sanctum', 'active'])->group(
         Route::middleware('role:staff,admin')
             ->prefix('staff')
             ->group(function () {
+                Route::get('/appointments', [AppointmentController::class, 'index']);
+                Route::patch('/appointments/{appointment}/check-in', [AppointmentController::class, 'checkIn']);
                 Route::get('/queue', [
                     StaffQueueController::class,
                     'index',

@@ -31,3 +31,4 @@
   .admin-page .dashboard-header { align-items: start; flex-direction: column; gap: 16px; }
   .admin-identity { flex-basis: 100%; }
 }
+.admin-service-form select { width: 100%; padding: 14px; color: #f8fafc; background: #090c10; border: 1px solid #303640; border-radius: 9px; font: inherit; }

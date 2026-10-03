@@ -26,8 +26,9 @@ export type QueueEntry = {
   called_at: string | null;
   completed_at: string | null;
 
-  people_ahead: number;
-  estimated_wait_minutes: number;
+  priority_at: string | null;
+  people_ahead: number | null;
+  estimated_wait_minutes: number | null;
 
   service: {
     id: number;

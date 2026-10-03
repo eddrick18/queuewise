@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\QueueEntry;
 use App\Models\Service;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -80,6 +81,9 @@ class QueueController extends Controller
                 $user,
                 $today,
             ): QueueEntry {
+                User::whereKey($user->id)->lockForUpdate()->firstOrFail();
+                abort_if(QueueEntry::where('user_id', $user->id)->whereDate('queue_date', $today)
+                    ->whereIn('status', ['waiting', 'called', 'serving'])->exists(), 409, 'You already have an active queue entry.');
                 $service = Service::query()
                     ->whereKey($validated['service_id'])
                     ->where('is_active', true)
@@ -182,23 +186,29 @@ class QueueController extends Controller
             'service:id,name,average_service_minutes',
         );
 
-        $peopleAhead = QueueEntry::query()
+        $active = QueueEntry::query()
             ->where('service_id', $queueEntry->service_id)
             ->whereDate(
                 'queue_date',
                 $queueEntry->queue_date,
             )
-            ->whereIn('status', [
-                'waiting',
-                'called',
-                'serving',
-            ])
-            ->where(
-                'queue_number',
-                '<',
-                $queueEntry->queue_number,
-            )
-            ->count();
+            ->where('id', '!=', $queueEntry->id);
+        $peopleAhead = 0;
+        if ($queueEntry->status === 'waiting') {
+            $peopleAhead = (clone $active)->whereIn('status', ['called', 'serving'])->count();
+            $waiting = (clone $active)->where('status', 'waiting')
+                ->where(fn ($query) => $query->whereNull('priority_at')->orWhere('priority_at', '<=', now()));
+            if ($queueEntry->priority_at && $queueEntry->priority_at->lte(now())) {
+                $waiting->whereNotNull('priority_at')->where(function ($query) use ($queueEntry) {
+                    $query->where('priority_at', '<', $queueEntry->priority_at)
+                        ->orWhere(fn ($same) => $same->where('priority_at', $queueEntry->priority_at)->where('queue_number', '<', $queueEntry->queue_number));
+                });
+            } else {
+                $waiting->where(fn ($query) => $query->whereNotNull('priority_at')->orWhere('queue_number', '<', $queueEntry->queue_number));
+            }
+            $peopleAhead += $waiting->count();
+        }
+        $awaitingTime = $queueEntry->status === 'waiting' && $queueEntry->priority_at?->isFuture();
 
         $averageMinutes =
             $queueEntry
@@ -228,9 +238,10 @@ class QueueController extends Controller
                 ->completed_at
                 ?->toISOString(),
 
-            'people_ahead' => $peopleAhead,
+            'priority_at' => $queueEntry->priority_at?->toISOString(),
+            'people_ahead' => $awaitingTime ? null : $peopleAhead,
 
-            'estimated_wait_minutes' => $peopleAhead * $averageMinutes,
+            'estimated_wait_minutes' => $awaitingTime ? null : $peopleAhead * $averageMinutes,
 
             'service' => [
                 'id' => $queueEntry->service->id,

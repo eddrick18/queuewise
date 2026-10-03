@@ -5,7 +5,7 @@ import {
   useState,
 } from "react";
 
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import { useAuth } from "../context/AuthContext";
 import { getErrorMessage } from "../lib/getErrorMessage";
@@ -400,6 +400,7 @@ export default function DashboardPage() {
   return (
     <main className="dashboard-page">
       <header className="dashboard-header">
+        <Link className="secondary-button" to="/appointments">Appointments</Link>
         <div>
           <p className="eyebrow">
             QUEUEWISE
@@ -555,7 +556,7 @@ export default function DashboardPage() {
                       <strong>
                         {hasActiveQueue
                           ? currentQueue
-                              .people_ahead
+                              .people_ahead ?? "Not due yet"
                           : "—"}
                       </strong>
                     </div>
@@ -567,7 +568,7 @@ export default function DashboardPage() {
 
                       <strong>
                         {hasActiveQueue
-                          ? `${currentQueue.estimated_wait_minutes} minutes`
+                          ? currentQueue.estimated_wait_minutes === null ? "Waiting for appointment time" : `${currentQueue.estimated_wait_minutes} minutes`
                           : "Finished"}
                       </strong>
                     </div>

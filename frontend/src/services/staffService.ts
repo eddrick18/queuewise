@@ -18,6 +18,7 @@ export type StaffQueueEntry = {
   joined_at: string;
   called_at: string | null;
   completed_at: string | null;
+  priority_at: string | null;
 
   user: {
     id: number;

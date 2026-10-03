@@ -86,6 +86,9 @@ class StaffQueueController extends Controller
                     )
                     ->whereDate('queue_date', $today)
                     ->where('status', 'waiting')
+                    ->where(fn ($query) => $query->whereNull('priority_at')->orWhere('priority_at', '<=', now()))
+                    ->orderByRaw('CASE WHEN priority_at IS NOT NULL THEN 0 ELSE 1 END')
+                    ->orderBy('priority_at')
                     ->orderBy('queue_number')
                     ->lockForUpdate()
                     ->first();
@@ -125,7 +128,7 @@ class StaffQueueController extends Controller
 
         if ($result['type'] === 'empty') {
             return response()->json([
-                'message' => 'There are no waiting customers for this service.',
+                'message' => 'No customers are ready to be called. Early appointments must wait until their booked time.',
             ], 404);
         }
 

@@ -14,6 +14,7 @@ import RegisterPage from "./pages/RegisterPage";
 import StaffDashboardPage from "./pages/StaffDashboardPage";
 import AdminServicesPage from "./pages/AdminServicesPage";
 import AdminStaffPage from "./pages/AdminStaffPage";
+import AppointmentsPage from "./pages/AppointmentsPage";
 import AdminQueueHistoryPage from "./pages/AdminQueueHistoryPage";
 import { roleHome } from "./lib/roleHome";
 
@@ -57,6 +58,8 @@ function HomeRoute() {
 function App() {
   return (
     <Routes>
+      <Route path="/appointments" element={<RoleProtectedRoute allowedRoles={["customer"]}><AppointmentsPage /></RoleProtectedRoute>} />
+      <Route path="/staff/appointments" element={<RoleProtectedRoute allowedRoles={["staff", "admin"]}><AppointmentsPage /></RoleProtectedRoute>} />
       <Route path="/admin/history" element={<RoleProtectedRoute allowedRoles={["admin"]}><AdminQueueHistoryPage /></RoleProtectedRoute>} />
       <Route
         path="/admin/staff"

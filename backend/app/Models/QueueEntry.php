@@ -16,6 +16,7 @@ class QueueEntry extends Model
         'joined_at',
         'called_at',
         'completed_at',
+        'priority_at',
     ];
 
     protected function casts(): array
@@ -26,6 +27,7 @@ class QueueEntry extends Model
             'joined_at' => 'datetime',
             'called_at' => 'datetime',
             'completed_at' => 'datetime',
+            'priority_at' => 'datetime',
         ];
     }
 

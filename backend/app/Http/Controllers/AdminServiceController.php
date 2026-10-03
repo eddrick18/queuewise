@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Appointment;
 use App\Models\Service;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -36,6 +37,11 @@ class AdminServiceController extends Controller
             $service = Service::query()->whereKey($service->id)->lockForUpdate()->firstOrFail();
 
             if (array_key_exists('is_active', $validated) && ! (bool) $validated['is_active']) {
+                $hasBookings = Appointment::where('service_id', $service->id)->where('status', 'booked')
+                    ->where('scheduled_at', '>=', now('Asia/Manila')->startOfDay()->utc())->exists();
+                if ($hasBookings) {
+                    return response()->json(['message' => 'This service has appointments awaiting check-in. Keep it active until those appointments are resolved.'], 409);
+                }
                 $hasActiveQueue = $service->queueEntries()
                     ->whereDate('queue_date', now()->toDateString())
                     ->whereIn('status', ['waiting', 'called', 'serving'])
