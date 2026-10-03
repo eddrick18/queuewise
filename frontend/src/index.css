@@ -1,10 +1,31 @@
+/* Shared QueueWise visual tokens. */
+:root {
+  --canvas: #f6f5f1;
+  --surface: #ffffff;
+  --surface-soft: #f0f3f6;
+  --ink: #192d45;
+  --muted: #5f6e80;
+  --border: #dce2e8;
+  --accent: #285fa0;
+  --accent-soft: #eaf1fa;
+  --success: #246348;
+  --success-soft: #edf6f0;
+  --success-border: #c7dfce;
+  --danger: #9b343d;
+  --danger-soft: #fdf1f1;
+  --danger-border: #eccdd0;
+  --warning: #805d20;
+  --warning-soft: #fbf5e7;
+  --warning-border: #e9d9b0;
+  color-scheme: light;
+}
 :root {
   font-family:
     Inter, system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;
 
-  color: #f8fafc;
-  background: #07090c;
+  color: var(--ink);
+  background: var(--canvas);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;

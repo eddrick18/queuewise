@@ -21,6 +21,7 @@ import {
 } from "../services/queueService";
 
 import "./DashboardPage.css";
+import NextAppointment from "../components/NextAppointment";
 
 const POLLING_INTERVAL_MS = 5000;
 
@@ -400,7 +401,6 @@ export default function DashboardPage() {
   return (
     <main className="dashboard-page">
       <header className="dashboard-header">
-        <Link className="secondary-button" to="/appointments">Appointments</Link>
         <div>
           <p className="eyebrow">
             QUEUEWISE
@@ -411,6 +411,8 @@ export default function DashboardPage() {
           </strong>
         </div>
 
+        <div className="customer-header-actions">
+        <Link className="secondary-button" to="/appointments">My appointments</Link>
         <button
           className="secondary-button"
           type="button"
@@ -423,6 +425,7 @@ export default function DashboardPage() {
             ? "Logging out..."
             : "Log out"}
         </button>
+        </div>
       </header>
 
       <section className="dashboard-content">
@@ -441,6 +444,7 @@ export default function DashboardPage() {
           </p>
         </div>
 
+        <NextAppointment />
         {error && (
           <div
             className="form-error dashboard-message"

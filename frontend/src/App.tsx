@@ -19,6 +19,7 @@ import AdminQueueHistoryPage from "./pages/AdminQueueHistoryPage";
 import { roleHome } from "./lib/roleHome";
 
 import "./App.css";
+import "./workspace.css";
 
 function HomeRoute() {
   const {
