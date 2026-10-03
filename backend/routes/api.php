@@ -22,6 +22,9 @@ Route::middleware(['auth:sanctum', 'active'])->group(
         Route::middleware('role:customer')->group(function () {
             Route::get('/appointments', [AppointmentController::class, 'index']);
             Route::get('/appointments/slots', [AppointmentController::class, 'slots']);
+            Route::get('/appointments/upcoming', [AppointmentController::class, 'upcoming']);
+            Route::get('/appointments/history', [AppointmentController::class, 'history']);
+            Route::patch('/appointments/{appointment}/reschedule', [AppointmentController::class, 'reschedule']);
             Route::post('/appointments', [AppointmentController::class, 'store']);
             Route::patch('/appointments/{appointment}/cancel', [AppointmentController::class, 'cancel']);
         });
@@ -79,6 +82,9 @@ Route::middleware(['auth:sanctum', 'active'])->group(
             ->prefix('staff')
             ->group(function () {
                 Route::get('/appointments', [AppointmentController::class, 'index']);
+                Route::get('/appointments/upcoming', [AppointmentController::class, 'upcoming']);
+                Route::get('/appointments/history', [AppointmentController::class, 'history']);
+                Route::patch('/appointments/{appointment}/no-show', [AppointmentController::class, 'noShow']);
                 Route::patch('/appointments/{appointment}/check-in', [AppointmentController::class, 'checkIn']);
                 Route::get('/queue', [
                     StaffQueueController::class,

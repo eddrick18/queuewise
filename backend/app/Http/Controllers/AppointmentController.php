@@ -30,6 +30,23 @@ class AppointmentController extends Controller
         return response()->json(['date' => $date, 'appointments' => $query->orderBy('scheduled_at')->orderBy('id')->get()]);
     }
 
+    public function upcoming(Request $request): JsonResponse
+    {
+        $request->validate(['page' => ['sometimes', 'required', 'integer', 'min:1', 'max:1000000']]);
+        $start = CarbonImmutable::now(self::TIMEZONE)->startOfDay()->utc();
+        $end = $start->addDay();
+        $appointments = Appointment::query()->with(['service:id,name', 'user:id,name', 'queueEntry:id,status,queue_number'])
+            ->where('scheduled_at', '>=', $start)
+            ->where(fn ($query) => $query->where('scheduled_at', '<', $end)->orWhere('status', 'booked'))
+            ->orderBy('scheduled_at')->orderBy('id');
+        if ($request->user()->role === 'customer') {
+            $appointments->where('user_id', $request->user()->id);
+        }
+        $appointments = $appointments->paginate(20);
+
+        return response()->json(['appointments' => $appointments]);
+    }
+
     public function slots(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -88,6 +105,62 @@ class AppointmentController extends Controller
         abort_unless($updated, 409, 'Only an appointment that has not been checked in can be cancelled.');
 
         return response()->json(['message' => 'Appointment cancelled.']);
+    }
+
+    public function reschedule(Request $request, Appointment $appointment): JsonResponse
+    {
+        abort_unless($appointment->user_id === $request->user()->id, 403);
+        $validated = $request->validate([
+            'date' => ['required', 'date_format:Y-m-d'],
+            'time' => ['required', 'date_format:H:i'],
+        ]);
+        $day = $this->bookingDay($validated['date']);
+        $time = CarbonImmutable::parse($day->toDateString().' '.$validated['time'], self::TIMEZONE)->utc();
+        $local = $time->setTimezone(self::TIMEZONE);
+        if ($local->hour < 8 || $local->hour >= 17 || ! in_array($local->minute, [0, 30], true) || ! $time->isFuture()) {
+            throw ValidationException::withMessages(['time' => 'Choose a future 30-minute slot between 8 AM and 5 PM.']);
+        }
+        $appointment = DB::transaction(function () use ($appointment, $time): Appointment {
+            User::whereKey($appointment->user_id)->lockForUpdate()->firstOrFail();
+            $service = Service::whereKey($appointment->service_id)->lockForUpdate()->firstOrFail();
+            $appointment = Appointment::whereKey($appointment->id)->lockForUpdate()->firstOrFail();
+            abort_unless($appointment->status === 'booked' && $appointment->scheduled_at->isFuture(), 409, 'Only future appointments awaiting check-in can be rescheduled.');
+            abort_unless($service->is_active, 409, 'This service is inactive.');
+            $conflicts = Appointment::where('id', '!=', $appointment->id)->where('reserved_slot', $time);
+            abort_if((clone $conflicts)->where('user_id', $appointment->user_id)->exists(), 409, 'You already have an appointment at this time.');
+            abort_if((clone $conflicts)->where('service_id', $service->id)->exists(), 409, 'This slot was just booked. Your original appointment has been kept.');
+            $appointment->update(['scheduled_at' => $time, 'reserved_slot' => $time]);
+
+            return $appointment;
+        }, 3);
+
+        return response()->json(['appointment' => $appointment]);
+    }
+
+    public function noShow(Appointment $appointment): JsonResponse
+    {
+        $updated = Appointment::whereKey($appointment->id)->where('status', 'booked')
+            ->where('scheduled_at', '<=', now()->subMinutes(30))
+            ->update(['status' => 'no_show', 'reserved_slot' => null]);
+        abort_unless($updated, 409, 'Only an unchecked-in appointment whose 30-minute slot has ended can be marked as a no-show.');
+
+        return response()->json(['message' => 'Appointment marked as no-show.']);
+    }
+
+    public function history(Request $request): JsonResponse
+    {
+        $request->validate(['page' => ['sometimes', 'required', 'integer', 'min:1', 'max:1000000']]);
+        $query = Appointment::query()->with(['service:id,name', 'user:id,name', 'queueEntry:id,status,queue_number']);
+        if ($request->user()->role === 'customer') {
+            $query->where('user_id', $request->user()->id);
+        }
+        $query->where(function ($query) {
+            $query->whereIn('status', ['cancelled', 'no_show'])
+                ->orWhereHas('queueEntry', fn ($queue) => $queue->whereIn('status', ['completed', 'cancelled', 'skipped']))
+                ->orWhere(fn ($missed) => $missed->where('status', 'booked')->where('scheduled_at', '<=', now()->subMinutes(30)));
+        });
+
+        return response()->json(['appointments' => $query->orderByDesc('scheduled_at')->orderByDesc('id')->paginate(20)]);
     }
 
     public function checkIn(Appointment $appointment): JsonResponse
